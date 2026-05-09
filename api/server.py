@@ -78,75 +78,60 @@ async def get_stats(game: str = "1M"):
                         "confidence": r[11]
                     })
 
-                # 2. Calculate Total Predicted & Won
+                # 2. Fetch all real predictions for robust Python-based processing
                 await cur.execute(
                     """
-                    SELECT COUNT(*), SUM(CASE WHEN size_win = 'WIN' THEN 1 ELSE 0 END)
+                    SELECT time_ist, size_win 
                     FROM predictions
                     WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
+                    ORDER BY period_id DESC
                     """,
                     [game]
                 )
-                total_row = await cur.fetchone()
-                if total_row and total_row[0] > 0:
-                    analytics["totalPredicted"] = total_row[0]
-                    analytics["totalWon"] = total_row[1] or 0
-                    analytics["winRate"] = round((analytics["totalWon"] / analytics["totalPredicted"]) * 100, 1)
+                preds = await cur.fetchall()
+                total_preds = len(preds)
+                
+                if total_preds > 0:
+                    # A. Calculate Total Predicted & Won
+                    total_won = sum(1 for p in preds if p[1] == "WIN")
+                    analytics["totalPredicted"] = total_preds
+                    analytics["totalWon"] = total_won
+                    analytics["winRate"] = round((total_won / total_preds) * 100, 1)
 
-                # 3. Calculate Last 10 Win Rate
-                await cur.execute(
-                    """
-                    SELECT COUNT(*), SUM(CASE WHEN size_win = 'WIN' THEN 1 ELSE 0 END)
-                    FROM (
-                        SELECT size_win FROM predictions
-                        WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
-                        ORDER BY period_id DESC LIMIT 10
-                    ) t
-                    """,
-                    [game]
-                )
-                l10_row = await cur.fetchone()
-                if l10_row and l10_row[0] > 0:
-                    analytics["last10WinRate"] = round(((l10_row[1] or 0) / l10_row[0]) * 100, 1)
+                    # B. Calculate Last 10 Win Rate
+                    l10_preds = preds[:10]
+                    l10_total = len(l10_preds)
+                    if l10_total > 0:
+                        l10_won = sum(1 for p in l10_preds if p[1] == "WIN")
+                        analytics["last10WinRate"] = round((l10_won / l10_total) * 100, 1)
 
-                # 4. Calculate Last 20 Win Rate
-                await cur.execute(
-                    """
-                    SELECT COUNT(*), SUM(CASE WHEN size_win = 'WIN' THEN 1 ELSE 0 END)
-                    FROM (
-                        SELECT size_win FROM predictions
-                        WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
-                        ORDER BY period_id DESC LIMIT 20
-                    ) t
-                    """,
-                    [game]
-                )
-                l20_row = await cur.fetchone()
-                if l20_row and l20_row[0] > 0:
-                    analytics["last20WinRate"] = round(((l20_row[1] or 0) / l20_row[0]) * 100, 1)
+                    # C. Calculate Last 20 Win Rate
+                    l20_preds = preds[:20]
+                    l20_total = len(l20_preds)
+                    if l20_total > 0:
+                        l20_won = sum(1 for p in l20_preds if p[1] == "WIN")
+                        analytics["last20WinRate"] = round((l20_won / l20_total) * 100, 1)
 
-                # 5. Calculate 10-Minute Blocks Win Rate
-                await cur.execute(
-                    """
-                    SELECT 
-                        CAST(SPLIT_PART(time_ist, ':', 2) AS INTEGER) / 10 AS block,
-                        COUNT(*),
-                        SUM(CASE WHEN size_win = 'WIN' THEN 1 ELSE 0 END)
-                    FROM predictions
-                    WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
-                    GROUP BY block
-                    ORDER BY block
-                    """,
-                    [game]
-                )
-                block_rows = await cur.fetchall()
-                block_names = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60"]
-                for b_r in block_rows:
-                    b_idx = int(b_r[0])
-                    if 0 <= b_idx < 6:
-                        b_total = b_r[1]
-                        b_wins = b_r[2] or 0
-                        analytics["blocks"][block_names[b_idx]] = round((b_wins / b_total) * 100, 1)
+                    # D. Calculate 10-Minute Blocks Win Rate safely in Python
+                    block_counts = {0: {"total": 0, "wins": 0}, 1: {"total": 0, "wins": 0}, 2: {"total": 0, "wins": 0}, 3: {"total": 0, "wins": 0}, 4: {"total": 0, "wins": 0}, 5: {"total": 0, "wins": 0}}
+                    for p in preds:
+                        t_str, s_win = p[0], p[1]
+                        try:
+                            parts = t_str.split(":")
+                            if len(parts) >= 2:
+                                minute = int(parts[1])
+                                block_idx = minute // 10
+                                if 0 <= block_idx < 6:
+                                    block_counts[block_idx]["total"] += 1
+                                    if s_win == "WIN":
+                                        block_counts[block_idx]["wins"] += 1
+                        except Exception:
+                            continue
+                    
+                    block_names = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60"]
+                    for idx, stats in block_counts.items():
+                        if stats["total"] > 0:
+                            analytics["blocks"][block_names[idx]] = round((stats["wins"] / stats["total"]) * 100, 1)
 
         return {"prediction": prediction, "recent": recent_rows, "analytics": analytics}
     except Exception as e:
