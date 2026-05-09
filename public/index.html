@@ -81,6 +81,11 @@
           </div>
 
           <button class="btn" id="forceBtn" onclick="forcePredict()">⚡ FORCE SYSTEM SYNC</button>
+          
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn" style="background: linear-gradient(135deg, #10b981, #059669); margin-top:0; flex: 1;" onclick="downloadExcel()">📥 EXPORT EXCEL</button>
+            <button class="btn" style="background: linear-gradient(135deg, #ef4444, #dc2626); margin-top:0; flex: 1;" onclick="clearDatabase()">🗑️ CLEAR DATA</button>
+          </div>
         </div>
 
         <div class="card" style="text-align: left;">
@@ -113,7 +118,7 @@
         </div>
       </div>
 
-      <!-- Right Column: 10-Min Block intervals & History Table -->
+      <!-- Right Column: 10-Min Block intervals & Hourwise list -->
       <div>
         <div class="card" style="text-align: left;">
           <h3>Hourly 10-Min Block Analytics</h3>
@@ -161,6 +166,14 @@
                 <span style="color:#16a34a;">Col: <strong id="b5c">0%</strong></span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="card" style="text-align: left; margin-top:20px;">
+          <h3>Hourwise Block Analytics (IST Hours)</h3>
+          <p style="font-size:12px; margin-bottom:15px;">Winning percentage of predictions grouped by each hour of the day:</p>
+          <div id="hourlyList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align:center; color:#64748b; font-size:12px; font-weight:500; padding: 20px;">Waiting for hourwise data...</div>
           </div>
         </div>
       </div>
@@ -252,6 +265,24 @@
 
           document.getElementById("b5s").innerText = d.analytics.blocks["50-60"].size + "%";
           document.getElementById("b5c").innerText = d.analytics.blocks["50-60"].color + "%";
+
+          // Populate Dynamic Hourwise feed
+          if (d.analytics.hourly && Object.keys(d.analytics.hourly).length > 0) {
+            const list = document.getElementById("hourlyList");
+            list.innerHTML = Object.entries(d.analytics.hourly).map(([hourLabel, stats]) => {
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 15px; border-radius:10px; border:1px solid #e2e8f0;">
+                  <strong style="color:#475569; font-size:13px;">${hourLabel}</strong>
+                  <div style="display:flex; gap:15px; font-size:12px; font-weight:800;">
+                    <span style="color:#4f46e5;">Size: ${stats.size}%</span>
+                    <span style="color:#16a34a;">Col: ${stats.color}%</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            document.getElementById("hourlyList").innerHTML = `<div style="text-align:center; color:#64748b; font-size:12px; font-weight:500; padding: 20px;">No predictions logged in current hours yet.</div>`;
+          }
         }
       } catch (e) { console.error(e); }
     }
@@ -269,6 +300,21 @@
       finally {
         btn.innerHTML = oldText;
         btn.disabled = false;
+      }
+    }
+
+    function downloadExcel() {
+      window.location.href = "/api/export";
+    }
+
+    async function clearDatabase() {
+      if (confirm("🚨 WARNING: Are you absolutely sure you want to delete all historical prediction records? This cannot be undone!")) {
+        try {
+          const res = await fetch("/api/clear-db", { method: "POST" });
+          const d = await res.json();
+          alert(d.message);
+          await fetchStats();
+        } catch (e) { console.error(e); }
       }
     }
 

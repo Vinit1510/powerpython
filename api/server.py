@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import io
+import csv
 import core.db
 from worker.sync import state, sync_round
 
@@ -49,7 +52,8 @@ async def get_stats(game: str = "1M"):
                 "30-40": {"size": 0.0, "color": 0.0},
                 "40-50": {"size": 0.0, "color": 0.0},
                 "50-60": {"size": 0.0, "color": 0.0}
-            }
+            },
+            "hourly": {}
         }
 
         async with core.db.pool.connection() as conn:
@@ -148,6 +152,31 @@ async def get_stats(game: str = "1M"):
                             analytics["blocks"][block_names[idx]]["size"] = round((stats["size_wins"] / stats["total"]) * 100, 1)
                             analytics["blocks"][block_names[idx]]["color"] = round((stats["color_wins"] / stats["total"]) * 100, 1)
 
+                    # E. Calculate Hourwise Win Rate safely in Python
+                    hourly_counts = {h: {"total": 0, "size_wins": 0, "color_wins": 0} for h in range(24)}
+                    for p in preds:
+                        t_str, s_win, c_win = p[0], p[1], p[2]
+                        try:
+                            if t_str and ":" in t_str:
+                                parts = t_str.split(":")
+                                hour = int(parts[0])
+                                if 0 <= hour < 24:
+                                    hourly_counts[hour]["total"] += 1
+                                    if s_win == "WIN":
+                                        hourly_counts[hour]["size_wins"] += 1
+                                    if c_win == "WIN":
+                                        hourly_counts[hour]["color_wins"] += 1
+                        except Exception:
+                            continue
+                    
+                    for hour, stats in hourly_counts.items():
+                        if stats["total"] > 0:
+                            h_label = f"{str(hour).zfill(2)}:00 - {str(hour+1).zfill(2)}:00"
+                            analytics["hourly"][h_label] = {
+                                "size": round((stats["size_wins"] / stats["total"]) * 100, 1),
+                                "color": round((stats["color_wins"] / stats["total"]) * 100, 1)
+                            }
+
         return {"prediction": prediction, "recent": recent_rows, "analytics": analytics}
     except Exception as e:
         import traceback
@@ -167,6 +196,48 @@ async def force_mine():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/export")
+async def export_data():
+    """Export predictions history database as an Excel-compatible CSV file."""
+    try:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Period ID", "Actual Number", "Actual Size", "Actual Color", "Predicted Number", "Predicted Size", "Predicted Color", "Strategy Used", "Size Result", "Color Result", "Date (IST)", "Time (IST)"])
+        
+        async with core.db.pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT period_id, actual_num, actual_size, actual_color, pred_num, pred_size, pred_color, pattern_used, size_win, color_win, date_ist, time_ist
+                    FROM predictions
+                    ORDER BY period_id DESC
+                    """
+                )
+                rows = await cur.fetchall()
+                for r in rows:
+                    writer.writerow(r)
+        
+        output.seek(0)
+        return StreamingResponse(
+            io.StringIO(output.getvalue()),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=vinigemi_predictor_history.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+@app.post("/api/clear-db")
+async def clear_db():
+    """Truncate predictions table to clear all historical results."""
+    try:
+        async with core.db.pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("TRUNCATE TABLE predictions;")
+                await conn.commit()
+        return {"success": True, "message": "Database cleared successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clear database failed: {str(e)}")
 
 # Mount Static frontend assets (dashboard index.html)
 public_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public")
