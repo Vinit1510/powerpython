@@ -1,5 +1,6 @@
 fastapi
 uvicorn
 psycopg[binary]
+psycopg-pool
 httpx
 pydantic
