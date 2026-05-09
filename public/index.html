@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VINIGEMI NEURAL BRAIN (PYTHON)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    h1 { background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; color: transparent; font-size: 36px; margin: 0; }
+    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; text-align: center; }
+    .big-text { font-size: 48px; font-weight: 800; margin: 10px 0; }
+    .win { color: #4ade80; font-weight: bold; }
+    .loss { color: #f87171; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+    th { color: #94a3b8; }
+    .btn { background: linear-gradient(135deg, #38bdf8, #6366f1); border: none; padding: 12px 24px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); margin-top: 15px; width: 100%; max-width: 300px; font-size: 14px; letter-spacing: 0.5px; }
+    .btn:hover:not(:disabled) { background: linear-gradient(135deg, #7dd3fc, #4f46e5); transform: translateY(-2px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.6); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { background: #475569; box-shadow: none; cursor: not-allowed; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>VINIGEMI PYTHON ENGINE</h1>
+    <p>Powered by Pure High-Precision Mathematical State Machines</p>
+  </div>
+
+  <div class="card" id="predCard">
+    <h3 style="color:#94a3b8; margin-top:0;">Target Period: <span id="targetId">Wait...</span></h3>
+    <div class="big-text" id="targetNum">?</div>
+    <div>Size: <strong id="targetSize">-</strong> | Color: <strong id="targetColor">-</strong></div>
+    <div style="margin-top:15px; color:#38bdf8;" id="targetMethod">Mining first block...</div>
+    <button class="btn" id="forceBtn" onclick="forcePredict()">⚡ FORCE AI PREDICT</button>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; text-align:left;">Recent Results</h3>
+    <table id="historyTable">
+      <thead>
+        <tr><th>Period</th><th>Actual</th><th>Predicted</th><th>Strategy</th><th>Result</th></tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Loading history...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function getBallColorStyle(colorStr) {
+      if (colorStr === "GREEN_VIOLET") {
+        return "background: linear-gradient(135deg, #22c55e 50%, #a855f7 50%); -webkit-background-clip: text; color: transparent; text-shadow: 0 0 10px rgba(34,197,94,0.4);";
+      }
+      if (colorStr === "RED_VIOLET") {
+        return "background: linear-gradient(135deg, #ef4444 50%, #a855f7 50%); -webkit-background-clip: text; color: transparent; text-shadow: 0 0 10px rgba(239,68,68,0.4);";
+      }
+      if (colorStr === "GREEN") {
+        return "color: #22c55e; text-shadow: 0 0 10px rgba(34,197,94,0.4);";
+      }
+      return "color: #ef4444; text-shadow: 0 0 10px rgba(239,68,68,0.4);";
+    }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/stats?game=1M");
+        const d = await res.json();
+        
+        if (d.prediction) {
+          document.getElementById("targetId").innerText = d.prediction.targetId;
+          document.getElementById("targetNum").innerText = d.prediction.number;
+          document.getElementById("targetSize").innerText = d.prediction.size;
+          document.getElementById("targetColor").innerText = d.prediction.color;
+          document.getElementById("targetMethod").innerText = d.prediction.method + " (" + d.prediction.confidence + "% Conf)";
+        }
+
+        if (d.recent && d.recent.length > 0) {
+          const body = document.getElementById("historyBody");
+          body.innerHTML = d.recent.map(r => {
+            const actualColorStyle = getBallColorStyle(r.actualColor);
+            const predColorStyle = getBallColorStyle(r.predColor);
+            
+            return `
+              <tr>
+                <td>#${r.periodId}</td>
+                <td><strong style="${actualColorStyle}">${r.actualNum}</strong> (${r.actualSize})</td>
+                <td><strong style="${predColorStyle}">${r.predNum}</strong> (${r.predSize})</td>
+                <td style="font-size:12px; color:#94a3b8;">${r.pattern}</td>
+                <td class="${r.sizeWin === 'WIN' ? 'win' : 'loss'}">${r.sizeWin}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    async function forcePredict() {
+      const btn = document.getElementById("forceBtn");
+      const oldText = btn.innerHTML;
+      btn.innerHTML = "🌀 MINING MATHEMATICAL PREDICTION...";
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/force-mine", { method: "POST" });
+        const d = await res.json();
+        console.log("[MANUAL TRIGGER]", d);
+        await fetchStats();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 5000);
+  </script>
+</body>
+</html>
