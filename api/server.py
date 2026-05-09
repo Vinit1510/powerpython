@@ -34,17 +34,21 @@ async def get_stats(game: str = "1M"):
         recent_rows = []
         analytics = {
             "totalPredicted": 0,
-            "totalWon": 0,
-            "winRate": 0.0,
-            "last10WinRate": 0.0,
-            "last20WinRate": 0.0,
+            "sizeWins": 0,
+            "colorWins": 0,
+            "sizeWinRate": 0.0,
+            "colorWinRate": 0.0,
+            "last10SizeWinRate": 0.0,
+            "last10ColorWinRate": 0.0,
+            "last20SizeWinRate": 0.0,
+            "last20ColorWinRate": 0.0,
             "blocks": {
-                "0-10": 0.0,
-                "10-20": 0.0,
-                "20-30": 0.0,
-                "30-40": 0.0,
-                "40-50": 0.0,
-                "50-60": 0.0
+                "0-10": {"size": 0.0, "color": 0.0},
+                "10-20": {"size": 0.0, "color": 0.0},
+                "20-30": {"size": 0.0, "color": 0.0},
+                "30-40": {"size": 0.0, "color": 0.0},
+                "40-50": {"size": 0.0, "color": 0.0},
+                "50-60": {"size": 0.0, "color": 0.0}
             }
         }
 
@@ -81,7 +85,7 @@ async def get_stats(game: str = "1M"):
                 # 2. Fetch all real predictions for robust Python-based processing
                 await cur.execute(
                     """
-                    SELECT time_ist, size_win 
+                    SELECT time_ist, size_win, color_win 
                     FROM predictions
                     WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
                     ORDER BY period_id DESC
@@ -93,48 +97,62 @@ async def get_stats(game: str = "1M"):
                 
                 if total_preds > 0:
                     # A. Calculate Total Predicted & Won
-                    total_won = sum(1 for p in preds if p[1] == "WIN")
+                    size_won = sum(1 for p in preds if p[1] == "WIN")
+                    color_won = sum(1 for p in preds if p[2] == "WIN")
                     analytics["totalPredicted"] = total_preds
-                    analytics["totalWon"] = total_won
-                    analytics["winRate"] = round((total_won / total_preds) * 100, 1)
+                    analytics["sizeWins"] = size_won
+                    analytics["colorWins"] = color_won
+                    analytics["sizeWinRate"] = round((size_won / total_preds) * 100, 1)
+                    analytics["colorWinRate"] = round((color_won / total_preds) * 100, 1)
 
                     # B. Calculate Last 10 Win Rate
                     l10_preds = preds[:10]
                     l10_total = len(l10_preds)
                     if l10_total > 0:
-                        l10_won = sum(1 for p in l10_preds if p[1] == "WIN")
-                        analytics["last10WinRate"] = round((l10_won / l10_total) * 100, 1)
+                        l10_size_won = sum(1 for p in l10_preds if p[1] == "WIN")
+                        l10_color_won = sum(1 for p in l10_preds if p[2] == "WIN")
+                        analytics["last10SizeWinRate"] = round((l10_size_won / l10_total) * 100, 1)
+                        analytics["last10ColorWinRate"] = round((l10_color_won / l10_total) * 100, 1)
 
                     # C. Calculate Last 20 Win Rate
                     l20_preds = preds[:20]
                     l20_total = len(l20_preds)
                     if l20_total > 0:
-                        l20_won = sum(1 for p in l20_preds if p[1] == "WIN")
-                        analytics["last20WinRate"] = round((l20_won / l20_total) * 100, 1)
+                        l20_size_won = sum(1 for p in l20_preds if p[1] == "WIN")
+                        l20_color_won = sum(1 for p in l20_preds if p[2] == "WIN")
+                        analytics["last20SizeWinRate"] = round((l20_size_won / l20_total) * 100, 1)
+                        analytics["last20ColorWinRate"] = round((l20_color_won / l20_total) * 100, 1)
 
                     # D. Calculate 10-Minute Blocks Win Rate safely in Python
-                    block_counts = {0: {"total": 0, "wins": 0}, 1: {"total": 0, "wins": 0}, 2: {"total": 0, "wins": 0}, 3: {"total": 0, "wins": 0}, 4: {"total": 0, "wins": 0}, 5: {"total": 0, "wins": 0}}
+                    block_counts = {0: {"total": 0, "size_wins": 0, "color_wins": 0}, 1: {"total": 0, "size_wins": 0, "color_wins": 0}, 2: {"total": 0, "size_wins": 0, "color_wins": 0}, 3: {"total": 0, "size_wins": 0, "color_wins": 0}, 4: {"total": 0, "size_wins": 0, "color_wins": 0}, 5: {"total": 0, "size_wins": 0, "color_wins": 0}}
                     for p in preds:
-                        t_str, s_win = p[0], p[1]
+                        t_str, s_win, c_win = p[0], p[1], p[2]
                         try:
-                            parts = t_str.split(":")
-                            if len(parts) >= 2:
-                                minute = int(parts[1])
-                                block_idx = minute // 10
-                                if 0 <= block_idx < 6:
-                                    block_counts[block_idx]["total"] += 1
-                                    if s_win == "WIN":
-                                        block_counts[block_idx]["wins"] += 1
+                            if t_str and ":" in t_str:
+                                parts = t_str.split(":")
+                                if len(parts) >= 2:
+                                    minute = int(parts[1])
+                                    block_idx = minute // 10
+                                    if 0 <= block_idx < 6:
+                                        block_counts[block_idx]["total"] += 1
+                                        if s_win == "WIN":
+                                            block_counts[block_idx]["size_wins"] += 1
+                                        if c_win == "WIN":
+                                            block_counts[block_idx]["color_wins"] += 1
                         except Exception:
                             continue
                     
                     block_names = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60"]
                     for idx, stats in block_counts.items():
                         if stats["total"] > 0:
-                            analytics["blocks"][block_names[idx]] = round((stats["wins"] / stats["total"]) * 100, 1)
+                            analytics["blocks"][block_names[idx]]["size"] = round((stats["size_wins"] / stats["total"]) * 100, 1)
+                            analytics["blocks"][block_names[idx]]["color"] = round((stats["color_wins"] / stats["total"]) * 100, 1)
 
         return {"prediction": prediction, "recent": recent_rows, "analytics": analytics}
     except Exception as e:
+        import traceback
+        print("[API ERROR] Failed in /api/stats:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
 
 @app.post("/api/force-mine")
