@@ -87,7 +87,7 @@ async def get_stats(game: str = "1M"):
                     """
                     SELECT time_ist, size_win, color_win 
                     FROM predictions
-                    WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%fallback%'
+                    WHERE game_type = %s AND LOWER(pattern_used) NOT LIKE '%%fallback%%'
                     ORDER BY period_id DESC
                     """,
                     [game]
