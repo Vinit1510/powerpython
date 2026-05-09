@@ -1,7 +1,8 @@
 import asyncio
 import datetime
 import httpx
-from core.db import pool
+import re
+import core.db
 from core.oracle import Oracle
 
 # Global in-memory state for tracking predictions and period transitions
@@ -32,7 +33,10 @@ async def fetch_history() -> list:
         res = await client.get(url, headers=headers)
         if res.status_code == 200:
             data = res.json()
-            return data.get("data", {}).get("list", []) or data.get("recent", []) or []
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                return data.get("data", {}).get("list", []) or data.get("recent", []) or []
     return []
 
 async def sync_round() -> bool:
@@ -52,7 +56,7 @@ async def sync_round() -> bool:
 
         # 1. Automatically backfill the recent 15 rounds to Neon using DO NOTHING on conflict
         ist = get_now_ist()
-        async with pool.connection() as conn:
+        async with core.db.pool.connection() as conn:
             async with conn.cursor() as cur:
                 for r in reversed(recent_list):
                     r_id = str(r["issueNumber"])
@@ -85,7 +89,7 @@ async def sync_round() -> bool:
             size_win = "WIN" if latest_size == pred["sz"] else "LOSS"
             color_win = "WIN" if (latest_color in pred["col"] or pred["col"] in latest_color) else "LOSS"
 
-            async with pool.connection() as conn:
+            async with core.db.pool.connection() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(
                         """
@@ -101,8 +105,9 @@ async def sync_round() -> bool:
                 await conn.commit()
             print(f"[SYNC] {latest_period} | Size Outcome: {size_win} | Color Outcome: {color_win} | Strategy: {pred['method']}")
 
-        # 3. Predict the next round instantly in < 1ms using the updated database history
-        next_period = str(int(latest_period) + 1)
+        # 3. Predict the next round safely and instantly in < 1ms using the updated database history
+        clean_period = re.sub(r"\D", "", latest_period)
+        next_period = str(int(clean_period) + 1)
         print(f"[SYNC] Preparing prediction for next Period: {next_period}")
 
         # Format historical list for the oracle engine

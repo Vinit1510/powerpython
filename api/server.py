@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from core.db import pool
+import core.db
 from worker.sync import state, sync_round
 
 app = FastAPI(title="VINIGEMI Power-By-Python Engine")
@@ -32,7 +32,7 @@ async def get_stats(game: str = "1M"):
             }
 
         recent_rows = []
-        async with pool.connection() as conn:
+        async with core.db.pool.connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
