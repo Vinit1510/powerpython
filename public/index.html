@@ -3,62 +3,179 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VINIGEMI NEURAL BRAIN (PYTHON)</title>
+  <title>VINIGEMI PYTHON PREDICTOR (LIGHT MODE)</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #f1f5f9; color: #0f172a; margin: 0; padding: 20px; transition: background 0.3s; }
+    .container { max-width: 1000px; margin: 0 auto; }
     .header { text-align: center; margin-bottom: 30px; }
-    h1 { background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; color: transparent; font-size: 36px; margin: 0; }
-    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; text-align: center; }
-    .big-text { font-size: 48px; font-weight: 800; margin: 10px 0; }
-    .win { color: #4ade80; font-weight: bold; }
-    .loss { color: #f87171; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
-    th { color: #94a3b8; }
-    .btn { background: linear-gradient(135deg, #38bdf8, #6366f1); border: none; padding: 12px 24px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); margin-top: 15px; width: 100%; max-width: 300px; font-size: 14px; letter-spacing: 0.5px; }
-    .btn:hover:not(:disabled) { background: linear-gradient(135deg, #7dd3fc, #4f46e5); transform: translateY(-2px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.6); }
-    .btn:active:not(:disabled) { transform: translateY(1px); }
-    .btn:disabled { background: #475569; box-shadow: none; cursor: not-allowed; opacity: 0.7; }
+    h1 { background: linear-gradient(135deg, #0284c7, #4f46e5); -webkit-background-clip: text; color: transparent; font-size: 34px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+    p { color: #64748b; margin-top: 5px; font-weight: 500; }
+    
+    .grid-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 768px) {
+      .grid-layout { grid-template-columns: 1.2fr 0.8fr; }
+    }
+
+    .card { background: #ffffff; padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05); border: 1px solid #e2e8f0; margin-bottom: 20px; text-align: center; position: relative; overflow: hidden; }
+    .card h3 { color: #475569; margin-top: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 15px; }
+    
+    .big-text { font-size: 64px; font-weight: 900; margin: 15px 0; color: #0284c7; text-shadow: 0 4px 10px rgba(2, 132, 199, 0.1); }
+    .sub-info { font-size: 18px; color: #334155; font-weight: 600; }
+    .method-badge { background: #f0f9ff; color: #0369a1; padding: 6px 16px; border-radius: 50px; display: inline-block; font-size: 13px; font-weight: 700; border: 1px solid #bae6fd; margin-top: 15px; }
+
+    /* Countdown Timer */
+    .timer-container { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; }
+    .timer-circle { width: 50px; height: 50px; border-radius: 50%; border: 3px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #4f46e5; border-top-color: #4f46e5; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .timer-seconds { font-size: 24px; font-weight: 900; color: #4f46e5; min-width: 35px; text-align: center; }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+    .stat-box { background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); text-align: center; }
+    .stat-box .num { font-size: 24px; font-weight: 800; color: #0f172a; }
+    .stat-box .label { font-size: 11px; color: #64748b; font-weight: bold; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Sliding Win Rates */
+    .window-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+    .window-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; text-align: center; }
+    .window-box .val { font-size: 20px; font-weight: 800; color: #4f46e5; }
+    .window-box .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+
+    /* 10-Min Block Grid */
+    .block-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .block-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; text-align: center; transition: 0.2s; }
+    .block-box:hover { background: #f0f9ff; border-color: #bae6fd; }
+    .block-box .time { font-size: 11px; color: #64748b; font-weight: bold; }
+    .block-box .rate { font-size: 16px; font-weight: 800; color: #0284c7; margin-top: 3px; }
+
+    /* History Table */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; }
+    th { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; background: #f8fafc; }
+    tr:hover { background: #f8fafc; }
+    .win { color: #16a34a; font-weight: bold; background: #dcfce7; padding: 4px 10px; border-radius: 50px; font-size: 12px; display: inline-block; }
+    .loss { color: #dc2626; font-weight: bold; background: #fee2e2; padding: 4px 10px; border-radius: 50px; font-size: 12px; display: inline-block; }
+
+    .btn { background: linear-gradient(135deg, #0284c7, #4f46e5); border: none; padding: 14px; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; margin-top: 20px; font-size: 14px; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.2); }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(2, 132, 199, 0.3); }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; opacity: 0.7; box-shadow: none; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>VINIGEMI PYTHON ENGINE</h1>
-    <p>Powered by Pure High-Precision Mathematical State Machines</p>
-  </div>
+  <div class="container">
+    <div class="header">
+      <h1>VINIGEMI PYTHON PREDICTOR</h1>
+      <p>Premium Algorithmic Math Prediction System</p>
+    </div>
 
-  <div class="card" id="predCard">
-    <h3 style="color:#94a3b8; margin-top:0;">Target Period: <span id="targetId">Wait...</span></h3>
-    <div class="big-text" id="targetNum">?</div>
-    <div>Size: <strong id="targetSize">-</strong> | Color: <strong id="targetColor">-</strong></div>
-    <div style="margin-top:15px; color:#38bdf8;" id="targetMethod">Mining first block...</div>
-    <button class="btn" id="forceBtn" onclick="forcePredict()">⚡ FORCE AI PREDICT</button>
-  </div>
+    <div class="grid-layout">
+      <!-- Left Column: Prediction Card & Stats -->
+      <div>
+        <div class="card" id="predCard">
+          <h3>Target Period: <span id="targetId" style="color:#0284c7;">Wait...</span></h3>
+          <div class="big-text" id="targetNum">?</div>
+          <div class="sub-info">Size: <span id="targetSize" style="color:#4f46e5;">-</span> | Color: <span id="targetColor">-</span></div>
+          <div class="method-badge" id="targetMethod">Syncing game data...</div>
+          
+          <div class="timer-container">
+            <div class="timer-seconds" id="countdownSec">60</div>
+            <div style="font-size:12px; color:#64748b; font-weight:bold; text-transform:uppercase;">Seconds Left</div>
+          </div>
 
-  <div class="card">
-    <h3 style="margin-top:0; text-align:left;">Recent Results</h3>
-    <table id="historyTable">
-      <thead>
-        <tr><th>Period</th><th>Actual</th><th>Predicted</th><th>Strategy</th><th>Result</th></tr>
-      </thead>
-      <tbody id="historyBody">
-        <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Loading history...</td></tr>
-      </tbody>
-    </table>
+          <button class="btn" id="forceBtn" onclick="forcePredict()">⚡ FORCE SYSTEM SYNC</button>
+        </div>
+
+        <div class="card" style="text-align: left;">
+          <h3 style="margin-bottom:20px;">Real-Time Prediction Analytics</h3>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="num" id="totalPreds">0</div>
+              <div class="label">Rounds</div>
+            </div>
+            <div class="stat-box">
+              <div class="num" id="totalWins">0</div>
+              <div class="label">Wins</div>
+            </div>
+            <div class="stat-box">
+              <div class="num" id="winRatePct">0%</div>
+              <div class="label">Win Rate</div>
+            </div>
+          </div>
+
+          <div class="window-stats">
+            <div class="window-box">
+              <div class="val" id="l10Rate">0%</div>
+              <div class="label">Last 10 Rounds</div>
+            </div>
+            <div class="window-box">
+              <div class="val" id="l20Rate">0%</div>
+              <div class="label">Last 20 Rounds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: 10-Min Block intervals & History Table -->
+      <div>
+        <div class="card" style="text-align: left;">
+          <h3>Hourly 10-Min Block Analytics</h3>
+          <p style="font-size:12px; margin-bottom:15px;">Winning percentage of predictions for each 10-minute segment of the hour:</p>
+          <div class="block-grid">
+            <div class="block-box">
+              <div class="time">00 - 10</div>
+              <div class="rate" id="b0">0%</div>
+            </div>
+            <div class="block-box">
+              <div class="time">10 - 20</div>
+              <div class="rate" id="b1">0%</div>
+            </div>
+            <div class="block-box">
+              <div class="time">20 - 30</div>
+              <div class="rate" id="b2">0%</div>
+            </div>
+            <div class="block-box">
+              <div class="time">30 - 40</div>
+              <div class="rate" id="b3">0%</div>
+            </div>
+            <div class="block-box">
+              <div class="time">40 - 50</div>
+              <div class="rate" id="b4">0%</div>
+            </div>
+            <div class="block-box">
+              <div class="time">50 - 60</div>
+              <div class="rate" id="b5">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Results Table at Bottom -->
+    <div class="card" style="text-align: left; margin-top:20px;">
+      <h3 style="margin-bottom:15px;">Recent Result History</h3>
+      <table id="historyTable">
+        <thead>
+          <tr><th>Period</th><th>Actual</th><th>Predicted</th><th>Strategy</th><th>Result</th></tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="5" style="text-align:center; color:#64748b; font-weight:500;">Loading recent database entries...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
     function getBallColorStyle(colorStr) {
       if (colorStr === "GREEN_VIOLET") {
-        return "background: linear-gradient(135deg, #22c55e 50%, #a855f7 50%); -webkit-background-clip: text; color: transparent; text-shadow: 0 0 10px rgba(34,197,94,0.4);";
+        return "background: linear-gradient(135deg, #16a34a 50%, #8b5cf6 50%); -webkit-background-clip: text; color: transparent; font-weight:800;";
       }
       if (colorStr === "RED_VIOLET") {
-        return "background: linear-gradient(135deg, #ef4444 50%, #a855f7 50%); -webkit-background-clip: text; color: transparent; text-shadow: 0 0 10px rgba(239,68,68,0.4);";
+        return "background: linear-gradient(135deg, #dc2626 50%, #8b5cf6 50%); -webkit-background-clip: text; color: transparent; font-weight:800;";
       }
       if (colorStr === "GREEN") {
-        return "color: #22c55e; text-shadow: 0 0 10px rgba(34,197,94,0.4);";
+        return "color: #16a34a; font-weight:800;";
       }
-      return "color: #ef4444; text-shadow: 0 0 10px rgba(239,68,68,0.4);";
+      return "color: #dc2626; font-weight:800;";
     }
 
     async function fetchStats() {
@@ -71,6 +188,7 @@
           document.getElementById("targetNum").innerText = d.prediction.number;
           document.getElementById("targetSize").innerText = d.prediction.size;
           document.getElementById("targetColor").innerText = d.prediction.color;
+          document.getElementById("targetColor").style = getBallColorStyle(d.prediction.color);
           document.getElementById("targetMethod").innerText = d.prediction.method + " (" + d.prediction.confidence + "% Conf)";
         }
 
@@ -82,14 +200,29 @@
             
             return `
               <tr>
-                <td>#${r.periodId}</td>
+                <td style="font-weight:600; color:#475569;">#${r.periodId}</td>
                 <td><strong style="${actualColorStyle}">${r.actualNum}</strong> (${r.actualSize})</td>
                 <td><strong style="${predColorStyle}">${r.predNum}</strong> (${r.predSize})</td>
-                <td style="font-size:12px; color:#94a3b8;">${r.pattern}</td>
-                <td class="${r.sizeWin === 'WIN' ? 'win' : 'loss'}">${r.sizeWin}</td>
+                <td style="font-size:12px; color:#64748b; font-weight:600;">${r.pattern}</td>
+                <td><span class="${r.sizeWin === 'WIN' ? 'win' : 'loss'}">${r.sizeWin}</span></td>
               </tr>
             `;
           }).join('');
+        }
+
+        if (d.analytics) {
+          document.getElementById("totalPreds").innerText = d.analytics.totalPredicted;
+          document.getElementById("totalWins").innerText = d.analytics.totalWon;
+          document.getElementById("winRatePct").innerText = d.analytics.winRate + "%";
+          document.getElementById("l10Rate").innerText = d.analytics.last10WinRate + "%";
+          document.getElementById("l20Rate").innerText = d.analytics.last20WinRate + "%";
+
+          document.getElementById("b0").innerText = d.analytics.blocks["0-10"] + "%";
+          document.getElementById("b1").innerText = d.analytics.blocks["10-20"] + "%";
+          document.getElementById("b2").innerText = d.analytics.blocks["20-30"] + "%";
+          document.getElementById("b3").innerText = d.analytics.blocks["30-40"] + "%";
+          document.getElementById("b4").innerText = d.analytics.blocks["40-50"] + "%";
+          document.getElementById("b5").innerText = d.analytics.blocks["50-60"] + "%";
         }
       } catch (e) { console.error(e); }
     }
@@ -97,22 +230,35 @@
     async function forcePredict() {
       const btn = document.getElementById("forceBtn");
       const oldText = btn.innerHTML;
-      btn.innerHTML = "🌀 MINING MATHEMATICAL PREDICTION...";
+      btn.innerHTML = "🌀 FORCING SYSTEM SYNC...";
       btn.disabled = true;
       try {
         const res = await fetch("/api/force-mine", { method: "POST" });
         const d = await res.json();
-        console.log("[MANUAL TRIGGER]", d);
         await fetchStats();
-      } catch (e) {
-        console.error(e);
-      } finally {
+      } catch (e) { console.error(e); }
+      finally {
         btn.innerHTML = oldText;
         btn.disabled = false;
       }
     }
 
+    function startTimer() {
+      setInterval(() => {
+        const now = new Date();
+        const seconds = now.getSeconds();
+        const timeLeft = 60 - seconds;
+        document.getElementById("countdownSec").innerText = timeLeft;
+        
+        // Refresh exactly on transition (when seconds = 0, 1, or 2 to capture the update)
+        if (seconds === 3 || seconds === 15 || seconds === 30 || seconds === 45) {
+          fetchStats();
+        }
+      }, 1000);
+    }
+
     fetchStats();
+    startTimer();
     setInterval(fetchStats, 5000);
   </script>
 </body>
